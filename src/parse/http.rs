@@ -10,8 +10,8 @@ pub enum Method {
 
 #[derive(Debug)]
 pub struct Headers {
-    method: Method,
-    fields: HashMap<String, String>,
+    pub method: Method,
+    pub fields: HashMap<String, String>,
 }
 
 impl Default for Headers {
