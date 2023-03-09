@@ -23,7 +23,7 @@ impl Default for Headers {
     }
 }
 
-pub fn parse_headers(headers: &String) -> Headers {
+pub fn parse_headers(headers: String) -> Headers {
     let parts = headers.split("\r\n\r\n").collect::<Vec<&str>>();
 
     let raw_header = parts[0];

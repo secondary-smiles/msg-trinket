@@ -8,13 +8,18 @@ use crate::parse::http::{parse_headers, Headers};
 pub async fn handle_connection<T: Read + Write + Unpin>(stream: &mut T) {
     let mut stream = stream;
 
-    let header = read_header(&mut stream).await;
+    let headers = read_header(&mut stream).await;
 
-    let response = format!("HTTP/1.0 200 OK\r\n\r\n{:?}", header);
+    let message;
 
-    for header in header.fields {
-        println!("{:?}", header);
+    if headers.fields.get("User-Agent").eval_or(&"".to_string()).contains("curl") {
+        message = "ur curl";
+    } else {
+        message = "ur not curl";
     }
+
+    let response = format!("HTTP/1.0 200 OK\r\n\r\n{}\n", message);
+
 
     stream.write(response.as_bytes()).await.eval();
     stream.flush().await.eval();
@@ -29,7 +34,7 @@ async fn read_header<T: Read + Write + Unpin>(stream: &mut T) -> Headers {
 
     let data = String::from_utf8_lossy(&data);
 
-    let headers = parse_headers(&data.to_string());
+    let headers = parse_headers(data.to_string());
 
     headers
 }
