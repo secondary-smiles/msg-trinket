@@ -7,6 +7,7 @@ use connection::handle::handle_connection;
 use info_utils::prelude::*;
 
 mod connection;
+mod parse;
 
 #[async_std::main]
 async fn main() {

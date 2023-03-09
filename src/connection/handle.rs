@@ -3,6 +3,8 @@ use async_std::io::prelude::*;
 // use async_std::prelude::*;
 use info_utils::prelude::*;
 
+use crate::parse::http::parse_headers;
+
 pub async fn handle_connection<T: Read + Write + Unpin>(stream: &mut T) {
     let mut stream = stream;
     
@@ -10,7 +12,6 @@ pub async fn handle_connection<T: Read + Write + Unpin>(stream: &mut T) {
     
     let response = format!("HTTP/1.0 200 OK\r\n\r\n{}", header);
 
-    log!("{}", response);
     stream.write(response.as_bytes()).await.eval();
     stream.flush().await.eval();
 }
@@ -23,6 +24,10 @@ async fn read_header<T: Read + Write + Unpin>(stream: &mut T) -> String {
     data.extend_from_slice(&buffer[..bytes_read]);
 
     let data = String::from_utf8_lossy(&data);    
+
+    let headers = parse_headers(&data.to_string());
+
+    log!("{:?}", headers);
 
     data.to_string()
 }
