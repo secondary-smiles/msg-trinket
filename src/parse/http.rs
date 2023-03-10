@@ -23,12 +23,14 @@ impl Default for Headers {
     }
 }
 
-pub fn parse_headers(headers: String) -> Headers {
-    let parts = headers.split("\r\n\r\n").collect::<Vec<&str>>();
+#[derive(Default, Debug)]
+pub struct Req {
+    pub headers: Headers,
+    pub data: Option<String>,
+}
 
-    let raw_header = parts[0];
-
-    let method_line = raw_header.lines().nth(0).eval();
+pub fn parse_headers(data: String) -> Headers {
+    let method_line = data.lines().nth(0).eval();
 
     let mut headers: Headers = Headers::default();
 
@@ -38,7 +40,7 @@ pub fn parse_headers(headers: String) -> Headers {
         _ => error!("method not supported"),
     };
 
-    for line in raw_header.lines() {
+    for line in data.lines() {
         match line.split_once(":") {
             Some((key, value)) => {
                 headers
