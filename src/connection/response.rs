@@ -84,7 +84,7 @@ pub fn resp_header(code: ResponseCode, data: &String) -> String {
         ResponseCode::Bad => "500 Internal Server Error",
     };
 
-    let header = format!("HTTP/1.0 {}\r\nContent-Length: {}\r\n\r\n", code, data.as_bytes().len() + 2);
+    let header = format!("HTTP/1.0 {}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n", code, data.as_bytes().len() + 2);
 
     header
 }

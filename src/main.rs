@@ -18,7 +18,13 @@ async fn main() {
     listener
         .incoming()
         .for_each_concurrent(/*limit*/ None, |stream| async move {
-            let mut stream = stream.eval();
+            let mut stream = match stream {
+                Ok(v) => v,
+                Err(e) => {
+                    warn!("couldn't connect to stream: {}", e);
+                    return;
+                }
+            };
 
             let connector = match stream.peer_addr() {
                 Ok(v) => v.to_string(),
@@ -28,8 +34,18 @@ async fn main() {
             log!("connection from: {}", connector);
 
             handle_connection(&mut stream).await;
-            stream.flush().await.eval();
-            stream.shutdown(net::Shutdown::Both).eval();
+            match stream.flush().await {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("couldn't flush stream: {}", e)
+                }
+            }
+            match stream.shutdown(net::Shutdown::Both) {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("couldn't flush stream: {}", e)
+                }
+            }
         })
         .await;
 }

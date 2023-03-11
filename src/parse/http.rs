@@ -30,14 +30,14 @@ pub struct Req {
 }
 
 pub fn parse_headers(data: String) -> Headers {
-    let method_line = data.lines().nth(0).eval();
+    let method_line = data.lines().nth(0).eval_or_default();
 
     let mut headers: Headers = Headers::default();
 
-    match method_line.split(" ").nth(0).eval() {
+    match method_line.split(" ").nth(0).eval_or_default() {
         "GET" => headers.method = Method::Get,
         "POST" => headers.method = Method::Post,
-        _ => error!("method not supported"),
+        _ => headers.method = Method::Get,
     };
 
     for line in data.lines() {

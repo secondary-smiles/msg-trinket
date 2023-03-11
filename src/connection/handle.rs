@@ -1,6 +1,5 @@
 use async_std::{io::prelude::*, net::TcpStream};
 
-// use async_std::prelude::*;
 use info_utils::prelude::*;
 
 use crate::connection::response;
@@ -9,7 +8,13 @@ use crate::parse::http::{parse_headers, Method, Req};
 pub async fn handle_connection(stream: &mut TcpStream) {
     let mut stream = stream;
 
-    let req = read_req(&mut stream).await;
+    let req = match read_req(&mut stream).await {
+        Ok(v) => v,
+        Err(_) => {
+            send_error(&mut stream).await;
+            return;
+        }
+    };
 
     let message;
 
@@ -76,16 +81,16 @@ async fn send_error(stream: &mut TcpStream) {
 }
 
 async fn send(stream: &mut TcpStream, message: String) {
-    stream.write(message.as_bytes()).await.eval();
-    stream.flush().await.eval();
+    stream.write(message.as_bytes()).await.eval_or_default();
+    stream.flush().await.eval_or_default();
 }
 
-async fn read_req(stream: &mut TcpStream) -> Req {
+async fn read_req(stream: &mut TcpStream) -> Result<Req, std::io::Error> {
     let stream = stream;
     let mut data = vec![];
     let mut buffer = [0; 8192];
 
-    let bytes_read = stream.read(&mut buffer).await.eval();
+    let bytes_read = stream.read(&mut buffer).await?;
     data.extend_from_slice(&buffer[..bytes_read]);
 
     let data = String::from_utf8_lossy(&data);
@@ -105,5 +110,5 @@ async fn read_req(stream: &mut TcpStream) -> Req {
 
     req.headers = headers;
 
-    req
+    Ok(req)
 }
