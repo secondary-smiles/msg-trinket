@@ -11,8 +11,6 @@ pub async fn handle_connection(stream: &mut TcpStream) {
 
     let req = read_req(&mut stream).await;
 
-    log!("{:?}", req.data);
-
     let message;
 
     match req.headers.method {
@@ -24,24 +22,28 @@ pub async fn handle_connection(stream: &mut TcpStream) {
                 .eval_or(&"".to_string())
                 .contains("curl")
             {
-                message = response::get_curl().await.eval();
+                message = match response::get_curl().await {
+                    Ok(v) => v,
+                    Err(_) => {
+                        send_error(&mut stream).await;
+                        return;
+                    }
+                };
             } else {
-                message = response::get_curl().await.eval();
+                message = match response::get_other().await {
+                    Ok(v) => v,
+                    Err(_) => {
+                        send_error(&mut stream).await;
+                        return;
+                    }
+                };
             }
         }
 
         Method::Post => match response::post_curl(&req.data.eval_or_default()).await {
-            Ok(_) => message = "uploaded.".to_string(),
+            Ok(_) => message = "uploaded your message successfully".to_string(),
             Err(_) => {
-                send(
-                    &mut stream,
-                    format!(
-                        "{}{}\r\n",
-                        response::resp_header(response::ResponseCode::Bad),
-                        "error uploading message."
-                    ),
-                )
-                .await;
+                send_error(&mut stream).await;
                 return;
             }
         },
@@ -51,8 +53,23 @@ pub async fn handle_connection(stream: &mut TcpStream) {
         &mut stream,
         format!(
             "{}{}\r\n",
-            response::resp_header(response::ResponseCode::Good),
+            response::resp_header(response::ResponseCode::Good, &message),
             message
+        ),
+    )
+    .await;
+}
+
+async fn send_error(stream: &mut TcpStream) {
+    let mut stream = stream;
+    warn!("caught server error");
+    let error = "server error. try again later";
+    send(
+        &mut stream,
+        format!(
+            "{}{}\r\n",
+            response::resp_header(response::ResponseCode::Bad, &error.to_string()),
+            error
         ),
     )
     .await;
@@ -66,7 +83,7 @@ async fn send(stream: &mut TcpStream, message: String) {
 async fn read_req(stream: &mut TcpStream) -> Req {
     let stream = stream;
     let mut data = vec![];
-    let mut buffer = [0; 1024];
+    let mut buffer = [0; 8192];
 
     let bytes_read = stream.read(&mut buffer).await.eval();
     data.extend_from_slice(&buffer[..bytes_read]);

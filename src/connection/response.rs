@@ -37,10 +37,21 @@ pub async fn get_curl() -> Result<String, ()> {
         Ok(v) => v,
         Err(_) => "hello, world!\nno message has been set yet.\n\
             run\n\
-            `curl msg.trinket.icu -d <your message>`\n\
+            $ curl msg.trinket.icu -d <your message>\n\
             to be the first!"
             .to_string(),
     };
+
+    Ok(contents)
+}
+
+pub async fn get_other() -> Result<String, ()> {
+    let contents: String = eval_return!(fs::read_to_string("resources/index.html").await);
+
+    let mut message = eval_return!(get_curl().await);
+    message = html_escape::encode_text(&message).to_string();
+
+    let contents = contents.replace("{{MESSAGE}}", &message);
 
     Ok(contents)
 }
@@ -53,7 +64,9 @@ pub async fn post_curl(data: &String) -> Result<(), ()> {
     eval_return!(fs::create_dir_all(prefix).await);
 
     // Backup current message
-    eval_return!(fs::copy(&message_path, save_path).await);
+    if message_path.exists() {
+        eval_return!(fs::copy(&message_path, save_path).await);
+    }
 
     eval_return!(fs::write(&message_path, data).await);
 
@@ -65,13 +78,13 @@ pub enum ResponseCode {
     Bad,
 }
 
-pub fn resp_header(code: ResponseCode) -> String {
+pub fn resp_header(code: ResponseCode, data: &String) -> String {
     let code = match code {
         ResponseCode::Good => "200 OK",
         ResponseCode::Bad => "500 Internal Server Error",
     };
 
-    let header = format!("HTTP/1.0 {}\r\n\r\n", code);
+    let header = format!("HTTP/1.0 {}\r\nContent-Length: {}\r\n\r\n", code, data.as_bytes().len() + 2);
 
     header
 }

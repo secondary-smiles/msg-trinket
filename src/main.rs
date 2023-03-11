@@ -19,6 +19,14 @@ async fn main() {
         .incoming()
         .for_each_concurrent(/*limit*/ None, |stream| async move {
             let mut stream = stream.eval();
+
+            let connector = match stream.peer_addr() {
+                Ok(v) => v.to_string(),
+                Err(_) => "<unknown>".to_string(),
+            };
+
+            log!("connection from: {}", connector);
+
             handle_connection(&mut stream).await;
             stream.flush().await.eval();
             stream.shutdown(net::Shutdown::Both).eval();
