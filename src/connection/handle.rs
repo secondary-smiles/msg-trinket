@@ -3,6 +3,7 @@ use async_std::{io::prelude::*, net::TcpStream};
 // use async_std::prelude::*;
 use info_utils::prelude::*;
 
+use crate::connection::response;
 use crate::parse::http::{parse_headers, Method, Req};
 
 pub async fn handle_connection(stream: &mut TcpStream) {
@@ -14,21 +15,51 @@ pub async fn handle_connection(stream: &mut TcpStream) {
 
     let message;
 
-    if req
-        .headers
-        .fields
-        .get("User-Agent")
-        .eval_or(&"".to_string())
-        .contains("curl")
-    {
-        message = "ur curl";
-    } else {
-        message = "ur not curl";
+    match req.headers.method {
+        Method::Get => {
+            if req
+                .headers
+                .fields
+                .get("User-Agent")
+                .eval_or(&"".to_string())
+                .contains("curl")
+            {
+                message = response::get_curl().await.eval();
+            } else {
+                message = response::get_curl().await.eval();
+            }
+        }
+
+        Method::Post => match response::post_curl(&req.data.eval_or_default()).await {
+            Ok(_) => message = "uploaded.".to_string(),
+            Err(_) => {
+                send(
+                    &mut stream,
+                    format!(
+                        "{}{}\r\n",
+                        response::resp_header(response::ResponseCode::Bad),
+                        "error uploading message."
+                    ),
+                )
+                .await;
+                return;
+            }
+        },
     }
 
-    let response = format!("HTTP/1.0 200 OK\r\n\r\n{}\n", message);
+    send(
+        &mut stream,
+        format!(
+            "{}{}\r\n",
+            response::resp_header(response::ResponseCode::Good),
+            message
+        ),
+    )
+    .await;
+}
 
-    stream.write(response.as_bytes()).await.eval();
+async fn send(stream: &mut TcpStream, message: String) {
+    stream.write(message.as_bytes()).await.eval();
     stream.flush().await.eval();
 }
 
