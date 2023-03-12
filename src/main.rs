@@ -4,21 +4,27 @@ use async_std::net::TcpListener;
 use futures::stream::StreamExt;
 
 use connection::handle::handle_connection;
+use rate::ratelimiter::RateLimiter;
+
 use info_utils::prelude::*;
 
 mod connection;
 mod parse;
+mod rate;
 
 #[async_std::main]
 async fn main() {
-    let port = 80;
+    let port = 4040;
     let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await.eval();
 
+    let ratelimiter: RateLimiter = RateLimiter::default();
+    
     log!("listening on port {}", port);
 
     listener
         .incoming()
-        .for_each_concurrent(/*limit*/ None, |stream| async move {
+        .for_each_concurrent(/*limit*/ None, |stream| async {
+            let mut ratelimiter = ratelimiter.clone();
             let mut stream = match stream {
                 Ok(v) => v,
                 Err(e) => {
@@ -34,7 +40,7 @@ async fn main() {
 
             log!("connection from: {}", connector);
 
-            handle_connection(&mut stream).await;
+            handle_connection(&mut stream, &mut ratelimiter).await;
             match stream.flush().await {
                 Ok(_) => {}
                 Err(e) => {

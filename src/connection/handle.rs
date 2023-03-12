@@ -4,8 +4,9 @@ use info_utils::prelude::*;
 
 use crate::connection::response;
 use crate::parse::http::{parse_headers, Method, Req};
+use crate::rate::ratelimiter::RateLimiter;
 
-pub async fn handle_connection(stream: &mut TcpStream) {
+pub async fn handle_connection(stream: &mut TcpStream, ratelimiter: &mut RateLimiter) {
     let mut stream = stream;
 
     let req = match read_req(&mut stream).await {
@@ -64,7 +65,13 @@ pub async fn handle_connection(stream: &mut TcpStream) {
                 match response::post_curl(&req.data.eval_or_default()).await {
                     Ok(_) => {
                         log!("successfull POST");
-                        message = "uploaded your message successfully.".to_string()
+                        message = "uploaded your message successfully.".to_string();
+                        let peer_addr = match stream.peer_addr() {
+                            Ok(v) => v.ip().to_string(),
+                            Err(_) => "<unknown>".to_string(),
+                        };
+
+                        ratelimiter.add(peer_addr);
                     }
                     Err(_) => {
                         send_error(&mut stream, None).await;
