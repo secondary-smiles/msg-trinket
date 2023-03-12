@@ -16,6 +16,8 @@ pub async fn handle_connection(stream: &mut TcpStream) {
         }
     };
 
+    log!("{:#?}", req);
+
     let message;
 
     match req.headers.method {
@@ -28,7 +30,10 @@ pub async fn handle_connection(stream: &mut TcpStream) {
                 .contains("curl")
             {
                 message = match response::get_curl().await {
-                    Ok(v) => v,
+                    Ok(v) => {
+                        log!("curl GET");
+                        v
+                    }
                     Err(_) => {
                         send_error(&mut stream).await;
                         return;
@@ -36,7 +41,10 @@ pub async fn handle_connection(stream: &mut TcpStream) {
                 };
             } else {
                 message = match response::get_other().await {
-                    Ok(v) => v,
+                    Ok(v) => {
+                        log!("other GET");
+                        v
+                    }
                     Err(_) => {
                         send_error(&mut stream).await;
                         return;
@@ -46,7 +54,10 @@ pub async fn handle_connection(stream: &mut TcpStream) {
         }
 
         Method::Post => match response::post_curl(&req.data.eval_or_default()).await {
-            Ok(_) => message = "uploaded your message successfully".to_string(),
+            Ok(_) => {
+                log!("successfull POST");
+                message = "uploaded your message successfully.".to_string()
+            }
             Err(_) => {
                 send_error(&mut stream).await;
                 return;
