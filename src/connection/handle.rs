@@ -11,7 +11,7 @@ pub async fn handle_connection(stream: &mut TcpStream) {
     let req = match read_req(&mut stream).await {
         Ok(v) => v,
         Err(_) => {
-            send_error(&mut stream).await;
+            send_error(&mut stream, None).await;
             return;
         }
     };
@@ -35,7 +35,7 @@ pub async fn handle_connection(stream: &mut TcpStream) {
                         v
                     }
                     Err(_) => {
-                        send_error(&mut stream).await;
+                        send_error(&mut stream, None).await;
                         return;
                     }
                 };
@@ -46,23 +46,36 @@ pub async fn handle_connection(stream: &mut TcpStream) {
                         v
                     }
                     Err(_) => {
-                        send_error(&mut stream).await;
+                        send_error(&mut stream, None).await;
                         return;
                     }
                 };
             }
         }
 
-        Method::Post => match response::post_curl(&req.data.eval_or_default()).await {
-            Ok(_) => {
-                log!("successfull POST");
-                message = "uploaded your message successfully.".to_string()
-            }
-            Err(_) => {
-                send_error(&mut stream).await;
+        Method::Post => {
+            if req
+                .headers
+                .fields
+                .get("User-Agent")
+                .eval_or(&"".to_string())
+                .contains("curl")
+            {
+                match response::post_curl(&req.data.eval_or_default()).await {
+                    Ok(_) => {
+                        log!("successfull POST");
+                        message = "uploaded your message successfully.".to_string()
+                    }
+                    Err(_) => {
+                        send_error(&mut stream, None).await;
+                        return;
+                    }
+                }
+            } else {
+                send_error(&mut stream, Some("post rejected.")).await;
                 return;
             }
-        },
+        }
     }
 
     send(
@@ -76,10 +89,10 @@ pub async fn handle_connection(stream: &mut TcpStream) {
     .await;
 }
 
-async fn send_error(stream: &mut TcpStream) {
+async fn send_error(stream: &mut TcpStream, message: Option<&str>) {
     let mut stream = stream;
     warn!("caught server error");
-    let error = "server error. try again later";
+    let error = message.eval_or("server error. try again later");
     send(
         &mut stream,
         format!(
